@@ -1,8 +1,9 @@
-"""Preview one screenshot, then bucket it into the current group.
+"""Preview one screenshot, then drop it into one of the buckets.
 
-The main window stays usable while this is open, so the session and group
-can be chosen before bucketing. Real images are shown scaled down. A text
-placeholder is shown as its filename, the same way Word export treats it.
+A bucket is a group inside a session. The menu lists every bucket, so a
+screenshot can go into any of them without closing the preview. Real images
+are shown scaled down. A text placeholder is shown as its filename, the same
+way Word export treats it.
 """
 
 from __future__ import annotations
@@ -17,9 +18,12 @@ from export_docx import is_embeddable_image
 from model import Shot
 from theme import (
     ACCENT,
+    ACCENT_DIM,
+    ACCENT_SOFT,
     BG,
     FIELD,
     MUTED,
+    PANEL,
     PANEL_BORDER,
     TEXT,
     Fonts,
@@ -42,7 +46,9 @@ class PreviewWindow:
         fonts: Fonts,
         shots: list[Shot],
         start_index: int,
-        bucket_text: Callable[[], str],
+        bucket_choices: Callable[[], list[str]],
+        selected_bucket: Callable[[], str],
+        on_pick_bucket: Callable[[str], None],
         on_bucket: Callable[[Shot], bool],
         on_show: Callable[[Shot], None],
         describe: Callable[[Shot], str],
@@ -51,7 +57,9 @@ class PreviewWindow:
         self._fonts = fonts
         self._shots = shots
         self._index = start_index
-        self._bucket_text = bucket_text
+        self._bucket_choices = bucket_choices
+        self._selected_bucket = selected_bucket
+        self._on_pick_bucket = on_pick_bucket
         self._on_bucket = on_bucket
         self._on_show = on_show
         self._describe = describe
@@ -119,7 +127,39 @@ class PreviewWindow:
             anchor="w",
             fg_color="transparent",
         )
-        self._status.pack(fill="x", pady=(2, 14))
+        self._status.pack(fill="x", pady=(2, 10))
+
+        pick = ctk.CTkFrame(body, fg_color="transparent")
+        pick.pack(fill="x", pady=(0, 14))
+        pick.columnconfigure(1, weight=1)
+        ctk.CTkLabel(
+            pick,
+            text="Bucket",
+            font=fonts.small,
+            text_color=MUTED,
+            anchor="w",
+            fg_color="transparent",
+        ).grid(row=0, column=0, padx=(0, 10))
+        self._bucket_menu = ctk.CTkComboBox(
+            pick,
+            values=["No buckets yet"],
+            command=self._picked_bucket,
+            state="readonly",
+            fg_color=FIELD,
+            border_color=PANEL_BORDER,
+            button_color="#14313c",
+            button_hover_color=ACCENT_DIM,
+            dropdown_fg_color=PANEL,
+            dropdown_hover_color=ACCENT_SOFT,
+            dropdown_text_color=TEXT,
+            text_color=TEXT,
+            font=fonts.ui,
+            dropdown_font=fonts.ui,
+            corner_radius=10,
+            border_width=1,
+            height=36,
+        )
+        self._bucket_menu.grid(row=0, column=1, sticky="ew")
 
         buttons = ctk.CTkFrame(body, fg_color="transparent")
         buttons.pack(anchor="e")
@@ -164,7 +204,7 @@ class PreviewWindow:
         self._show_shot(shot)
         self._caption.configure(text=shot.caption())
         self._status.configure(text=self._describe(shot))
-        self._bucket.configure(text=self._bucket_text())
+        self.refresh_buckets()
         self._previous.configure(state="normal" if self._index > 0 else "disabled")
         self._next.configure(state="normal" if self._index + 1 < len(self._shots) else "disabled")
         self._on_show(shot)
@@ -197,7 +237,7 @@ class PreviewWindow:
             return
         shot = self._shots[self._index]
         if not self._on_bucket(shot):
-            self._bucket.configure(text=self._bucket_text())
+            self.refresh_buckets()
             return
         # Keep reviewing files that are not in a group yet.
         for nxt in list(range(self._index + 1, len(self._shots))) + list(range(0, self._index)):
@@ -205,6 +245,37 @@ class PreviewWindow:
                 self.show(nxt)
                 return
         self.show(self._index)
+
+    def refresh_buckets(self) -> None:
+        """Reload the bucket menu from the main window without changing the image."""
+
+        choices = self._bucket_choices()
+        preferred = self._selected_bucket()
+        if not choices:
+            self._bucket_menu.configure(values=["No buckets yet"])
+            self._bucket_menu.set("No buckets yet")
+            self._bucket.configure(text="Add a bucket first")
+            return
+        self._bucket_menu.configure(values=choices)
+        current = self._bucket_menu.get()
+        if preferred in choices:
+            choice = preferred
+        elif current in choices:
+            choice = current
+        else:
+            # Show a real bucket without changing the main window. The bucket
+            # button applies this choice when it is clicked.
+            choice = choices[0]
+        self._bucket_menu.set(choice)
+        self._bucket.configure(text=f"Bucket into {choice}")
+
+    def _picked_bucket(self, choice: str) -> None:
+        if choice == "No buckets yet":
+            return
+        # set() does not fire the combo command, so this does not recurse.
+        self._bucket_menu.set(choice)
+        self._on_pick_bucket(choice)
+        self._bucket.configure(text=f"Bucket into {choice}")
 
 
 def _load_preview(path: Path) -> tk.PhotoImage | None:

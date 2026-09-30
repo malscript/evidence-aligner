@@ -95,9 +95,9 @@ class Organizer:
     def add_group(self, session: Session, label: str) -> Group:
         cleaned = label.strip()
         if not cleaned:
-            raise ValueError("Enter a group label.")
+            raise ValueError("Enter a bucket name.")
         if any(group.label == cleaned for group in session.groups):
-            raise ValueError(f"This session already has a group labeled {cleaned!r}.")
+            raise ValueError(f"This session already has a bucket named {cleaned!r}.")
         group = Group(label=cleaned)
         session.groups.append(group)
         return group

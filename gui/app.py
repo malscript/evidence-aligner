@@ -143,7 +143,7 @@ class OrganizerApp:
         ).grid(row=0, column=1, sticky="w")
         muted_label(
             header,
-            "Preview a screenshot, bucket it into a session, then export the assigned shots.",
+            "Preview a screenshot, drop it into a bucket, then export every bucket.",
             self.fonts,
         ).grid(row=1, column=1, sticky="w", pady=(2, 0))
 
@@ -211,23 +211,23 @@ class OrganizerApp:
         group_row = ctk.CTkFrame(parent, fg_color="transparent")
         group_row.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 8))
         group_row.columnconfigure(1, weight=1)
-        muted_label(group_row, "New group", self.fonts).grid(row=0, column=0, padx=(0, 8))
+        muted_label(group_row, "New bucket", self.fonts).grid(row=0, column=0, padx=(0, 8))
         self.group_entry = self._entry(group_row, self.group_label_var)
         self.group_entry.grid(row=0, column=1, sticky="ew")
         self.group_entry.bind("<Return>", lambda _event: self.add_group())
-        secondary_button(group_row, "Add group", self.add_group, self.fonts).grid(
+        secondary_button(group_row, "Add bucket", self.add_group, self.fonts).grid(
             row=0, column=2, padx=(8, 0)
         )
 
         group_pick = ctk.CTkFrame(parent, fg_color="transparent")
         group_pick.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 12))
         group_pick.columnconfigure(1, weight=1)
-        muted_label(group_pick, "Group", self.fonts).grid(row=0, column=0, padx=(0, 8))
+        muted_label(group_pick, "Bucket", self.fonts).grid(row=0, column=0, padx=(0, 8))
         self.group_combo = self._combo(group_pick, lambda _value: self.refresh_group_contents())
         self.group_combo.grid(row=0, column=1, sticky="ew")
-        secondary_button(group_pick, "Remove group", self.remove_group, self.fonts).grid(
-            row=0, column=2, padx=(8, 0)
-        )
+        remove_bucket = secondary_button(group_pick, "Remove bucket", self.remove_group, self.fonts)
+        remove_bucket.configure(width=150)
+        remove_bucket.grid(row=0, column=2, padx=(8, 0))
 
         action_row = ctk.CTkFrame(parent, fg_color="transparent")
         action_row.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 12))
@@ -240,7 +240,7 @@ class OrganizerApp:
             row=0, column=1, sticky="ew"
         )
 
-        section_label(parent, "In this group", self.fonts).grid(
+        section_label(parent, "In this bucket", self.fonts).grid(
             row=5, column=0, sticky="w", padx=16, pady=(0, 6)
         )
         self.group_list = self._mount_list(parent, row=6, bottom=10)
@@ -372,7 +372,7 @@ class OrganizerApp:
             proceed = ask_yes_no(
                 self.root,
                 "Reload folder",
-                "Reloading clears the sessions and groups in this window. Continue?",
+                "Reloading clears the sessions and buckets in this window. Continue?",
                 self.fonts,
             )
             if not proceed:
@@ -401,22 +401,24 @@ class OrganizerApp:
             return
         self.session_name_var.set("")
         self.refresh_sessions(select=session.name)
-        self.status_var.set(f"Added session {session.name!r}.")
+        self.status_var.set(f"Added session {session.name!r}. Add a bucket inside it.")
         self.group_entry.focus_set()
+        self._refresh_open_preview()
 
     def add_group(self) -> None:
         session = self.current_session()
         if session is None:
-            show_message(self.root, "Add group", "Add a session before adding a group.", self.fonts)
+            show_message(self.root, "Add bucket", "Add a session before adding a bucket.", self.fonts)
             return
         try:
             group = self.organizer.add_group(session, self.group_label_var.get())
         except ValueError as exc:
-            show_message(self.root, "Add group", str(exc), self.fonts)
+            show_message(self.root, "Add bucket", str(exc), self.fonts)
             return
         self.group_label_var.set("")
         self.refresh_groups(select=group.label)
-        self.status_var.set(f"Added group {group.label!r} to {session.name!r}.")
+        self.status_var.set(f"Added bucket {group.label!r}. Add another whenever you need a new pile.")
+        self._refresh_open_preview()
 
     def remove_session(self) -> None:
         session = self.current_session()
@@ -425,6 +427,7 @@ class OrganizerApp:
         self.organizer.remove_session(session)
         self.refresh_sessions()
         self.status_var.set(f"Removed session {session.name!r}. Its screenshots are unassigned.")
+        self._refresh_open_preview()
 
     def remove_group(self) -> None:
         session = self.current_session()
@@ -434,7 +437,8 @@ class OrganizerApp:
         self.organizer.remove_group(session, group)
         self.refresh_groups()
         self.refresh_shot_lists()
-        self.status_var.set(f"Removed group {group.label!r}. Its screenshots are unassigned.")
+        self.status_var.set(f"Removed bucket {group.label!r}. Its screenshots are unassigned.")
+        self._refresh_open_preview()
 
     def preview_selected(self) -> None:
         """Open the selected screenshot so it can be reviewed, then bucketed."""
@@ -459,7 +463,9 @@ class OrganizerApp:
             self.fonts,
             self.organizer.shots,
             index,
-            bucket_text=self._bucket_button_text,
+            bucket_choices=self._bucket_choices,
+            selected_bucket=self._selected_bucket_label,
+            on_pick_bucket=self._pick_bucket,
             on_bucket=self._bucket_from_preview,
             on_show=self._select_shot,
             describe=self._preview_description,
@@ -471,18 +477,54 @@ class OrganizerApp:
             self._preview.window.destroy()
         self._preview = None
 
-    def _bucket_button_text(self) -> str:
+    def _bucket_choices(self) -> list[str]:
+        """Every bucket. Include the session name when more than one session exists."""
+
+        several_sessions = len(self.organizer.sessions) > 1
+        labels: list[str] = []
+        for session in self.organizer.sessions:
+            for group in session.groups:
+                if several_sessions:
+                    labels.append(f"{session.name} / {group.label}")
+                else:
+                    labels.append(group.label)
+        return labels
+
+    def _selected_bucket_label(self) -> str:
         session = self.current_session()
         group = self.current_group()
         if session is None or group is None:
-            return "Bucket into this group"
-        return f"Bucket into {session.name} / {group.label}"
+            return ""
+        if len(self.organizer.sessions) > 1:
+            return f"{session.name} / {group.label}"
+        return group.label
+
+    def _pick_bucket(self, label: str) -> None:
+        """Point the main window at the bucket chosen in the preview."""
+
+        several_sessions = len(self.organizer.sessions) > 1
+        for session in self.organizer.sessions:
+            for group in session.groups:
+                text = f"{session.name} / {group.label}" if several_sessions else group.label
+                if text != label:
+                    continue
+                self.refresh_sessions(select=session.name)
+                self.refresh_groups(select=group.label)
+                return
+
+    def _refresh_open_preview(self) -> None:
+        if self._preview is not None and self._preview.winfo_exists():
+            self._preview.refresh_buckets()
 
     def _bucket_from_preview(self, shot: Shot) -> bool:
+        if self._preview is not None and self._preview.winfo_exists():
+            choice = self._preview._bucket_menu.get()
+            if choice and choice != "No buckets yet":
+                self._pick_bucket(choice)
         session = self.current_session()
         group = self.current_group()
         if session is None or group is None:
-            show_message(self.root, "Bucket", "Choose a session and a group first.", self.fonts)
+            show_message(self.root, "Bucket", "Add a bucket first, then choose it in the preview.", self.fonts)
             return False
         moved = self.organizer.assign([shot], group)
         self.refresh_shot_lists()
@@ -498,7 +540,7 @@ class OrganizerApp:
         label = self.organizer.assignment_label(shot)
         if label:
             return f"Bucketed in {label}. Export assigned to Word includes this file."
-        return "Unassigned. Choose a session and group, then bucket this screenshot."
+        return "Unassigned. Choose a bucket below, then drop this screenshot into it."
 
     def _shot_is_unassigned(self, shot: Shot) -> bool:
         return self.organizer.assignment_label(shot) is None
@@ -518,7 +560,7 @@ class OrganizerApp:
     def assign_selected(self) -> None:
         group = self.current_group()
         if group is None:
-            show_message(self.root, "Assign", "Choose a session and a group first.", self.fonts)
+            show_message(self.root, "Assign", "Choose a session and a bucket first.", self.fonts)
             return
         shots = self.selected_shots()
         if not shots:
@@ -544,7 +586,7 @@ class OrganizerApp:
             return
         shots = [self._group_view[index] for index in self.group_list.curselection()]
         if not shots:
-            show_message(self.root, "Unassign", "Select a screenshot in this group first.", self.fonts)
+            show_message(self.root, "Unassign", "Select a screenshot in this bucket first.", self.fonts)
             return
         self.organizer.unassign(shots)
         self.refresh_shot_lists()
@@ -557,7 +599,7 @@ class OrganizerApp:
             return
         selection = list(self.group_list.curselection())
         if len(selection) != 1:
-            show_message(self.root, "Reorder", "Select one screenshot in this group to move it.", self.fonts)
+            show_message(self.root, "Reorder", "Select one screenshot in this bucket to move it.", self.fonts)
             return
         new_index = self.organizer.move(group, selection[0], delta)
         self.refresh_group_contents()
@@ -576,7 +618,7 @@ class OrganizerApp:
             show_message(
                 self.root,
                 "Export",
-                "Bucket at least one screenshot before exporting. The Word document includes only assigned screenshots.",
+                "Add a screenshot to a bucket before exporting. The Word document has one section per bucket.",
                 self.fonts,
             )
             return

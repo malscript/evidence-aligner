@@ -53,13 +53,13 @@ The organizer is a CustomTkinter window. It does not read the transcript. It tre
 You can:
 
 - choose a different screenshots folder
-- add sessions and groups by typing a name or label
-- preview a screenshot, then bucket it into the current session and group
-- assign selected screenshots to the current session and group
-- move screenshots up or down inside a group
+- add sessions, and add as many buckets as you need inside each session
+- preview a screenshot and choose which bucket it goes into
+- assign selected screenshots to the current bucket
+- move screenshots up or down inside a bucket
 - return screenshots to the unassigned list
 - see everything that is still unassigned
-- export the assigned screenshots to a `.docx` file (one heading per session, one subheading per group)
+- export the assigned screenshots to a `.docx` file (one heading per session, one subheading per bucket)
 
 Sessions live in the window until you close it or reload the folder. Reload clears them.
 
@@ -78,7 +78,7 @@ python gui/app.py
 sudo apt install python3-tk
 ```
 
-The window opens on `sample_images/`. Select a file and click **Preview** to see it. **Bucket into …** puts that screenshot in the session and group you chose, then moves on to the next one that is still unassigned. **Export assigned to Word** writes every bucketed screenshot into one document and asks where to save it. The suggested path is `reports/screenshot_organizer.docx`. Unassigned screenshots are left out; the app asks before doing that.
+The window opens on `sample_images/`. A session is the top section of the Word document. A bucket is a pile of screenshots inside that session, and you can add as many buckets as you need. Select a file and click **Preview**. The preview lists every bucket. **Bucket into …** drops the screenshot into the one you picked, then moves on to the next file that is still unassigned. **Export assigned to Word** writes every bucket into one document and asks where to save it. The suggested path is `reports/screenshot_organizer.docx`. Unassigned screenshots are left out; the app asks before doing that.
 
 ## Layout
 
