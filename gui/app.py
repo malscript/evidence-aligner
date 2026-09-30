@@ -42,7 +42,7 @@ except ImportError:
 # import directly. That keeps the launch command a plain script.
 from dialogs import ask_yes_no, show_message
 from export_docx import export_document
-from model import Group, Organizer, Session, Shot
+from model import Group, Organizer, Session, Shot, compile_pattern, normalize_pattern
 from preview import PreviewWindow
 from theme import (
     ACCENT,
@@ -74,6 +74,7 @@ class OrganizerApp:
         self.organizer = Organizer()
         self.fonts: Fonts = build_fonts()
         self.folder_var = tk.StringVar(value=str(DEFAULT_FOLDER))
+        self.pattern_var = tk.StringVar()
         self.session_name_var = tk.StringVar()
         self.group_label_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Choose a screenshots folder to begin.")
@@ -163,6 +164,17 @@ class OrganizerApp:
         )
         secondary_button(bar, "Reload", self.load_folder, self.fonts).grid(
             row=0, column=3, padx=(8, 16), pady=14
+        )
+
+        muted_label(bar, "Timestamp pattern", self.fonts).grid(
+            row=1, column=0, padx=(16, 10), pady=(0, 14)
+        )
+        pattern_entry = self._entry(bar, self.pattern_var)
+        pattern_entry.configure(placeholder_text="yyyy-MM-dd HH_mm_ss")
+        pattern_entry.grid(row=1, column=1, sticky="ew", pady=(0, 14))
+        pattern_entry.bind("<Return>", lambda _event: self.apply_pattern())
+        secondary_button(bar, "Apply", self.apply_pattern, self.fonts).grid(
+            row=1, column=2, padx=(10, 0), pady=(0, 14)
         )
 
     def _build_lists(self, parent: ctk.CTkFrame) -> None:
@@ -367,7 +379,37 @@ class OrganizerApp:
         self.folder_var.set(chosen)
         self.load_folder()
 
+    def apply_pattern(self) -> None:
+        """Re-read filenames with the pattern field. Sessions stay as they are."""
+
+        normalized = self._validated_pattern()
+        if normalized is None:
+            return
+        summary = self.organizer.use_pattern(normalized)
+        self.refresh_shot_lists()
+        self.refresh_group_contents()
+        self._refresh_open_preview()
+        self.status_var.set(summary)
+
+    def _validated_pattern(self) -> str | None:
+        """Return the field as a pattern. None means it was rejected.
+
+        A blank field is valid and means the built-in filename shapes.
+        """
+
+        try:
+            normalized = normalize_pattern(self.pattern_var.get())
+            if normalized:
+                compile_pattern(normalized)
+        except ValueError as exc:
+            show_message(self.root, "Timestamp pattern", str(exc), self.fonts)
+            return None
+        return normalized
+
     def load_folder(self, confirm: bool = True) -> None:
+        normalized = self._validated_pattern()
+        if normalized is None:
+            return
         if confirm and self.organizer.sessions:
             proceed = ask_yes_no(
                 self.root,
@@ -377,6 +419,7 @@ class OrganizerApp:
             )
             if not proceed:
                 return
+        self.organizer.pattern = normalized
         folder = Path(self.folder_var.get()).expanduser()
         try:
             self.organizer.load_folder(folder)
@@ -389,8 +432,7 @@ class OrganizerApp:
         self.group_combo.set("")
         self.refresh_all()
         self.status_var.set(
-            f"Loaded {len(self.organizer.shots)} file(s) from {folder}. "
-            "Every file is listed, sorted by the time in its name."
+            f"Loaded {len(self.organizer.shots)} file(s) from {folder}. {self.organizer.pattern_summary()}"
         )
 
     def add_session(self) -> None:

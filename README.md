@@ -46,18 +46,21 @@ python aligner.py \
 
 ## Desktop organizer
 
-The organizer is a CustomTkinter window. It does not read the transcript. It treats **every file** in a folder as a screenshot and sorts the list by the timestamp in the filename. Two filename shapes are read:
+The organizer is a CustomTkinter window. It does not read the transcript. It treats **every file** in a folder as a screenshot and sorts the list by the timestamp in the filename.
 
-- `yyyy-MM-dd HH_mm_ss`, the capture pattern `2026-09-30 14_30_22.png`. An underscore may stand in for the space. Dated files sort by calendar day, then clock time.
-- `HHMMSS`, as in `shot_143022.png` (14:30:22).
+**Timestamp pattern** is optional. Leave it blank and press **Apply**, and two shapes are read:
 
-A name with no valid timestamp stays in the list and sorts after the timed ones. Shots do not have to be a fixed interval apart.
+- `yyyy-MM-dd HH_mm_ss`, as in `2026-09-30 14_30_22.png`. An underscore may stand in for the space.
+- `HHmmss`, as in `shot_143022.png` (14:30:22).
+
+To match a capture tool, type its pattern and press **Apply**. You can paste the whole token `${capturetime:d"yyyy-MM-dd HH_mm_ss"}`; the quotes are stripped. Tokens are `yyyy` or `yy` (year), `MM` (month), `dd` (day), `HH` (hour), `mm` (minute), and `ss` (second). Any other character, including `-`, `_`, and spaces, must appear in the filename as written. A custom pattern is used on its own, so a file that does not match it is listed with no time. Dated names sort by calendar day, then clock time. Shots do not have to be a fixed interval apart.
 
 `sample_images/` is the default folder. Nine of the files are small synthetic PNG images. `shot_141105.png` is a text placeholder on purpose: on export, real images are embedded and a non-image file is inserted as its filename. Every screenshot, image or not, gets a caption with its filename and timestamp.
 
 You can:
 
 - choose a different screenshots folder
+- set a timestamp pattern, or leave it blank for the built-in filename shapes
 - add sessions, and add as many buckets as you need inside each session (the name is whatever you type when you add it)
 - preview a screenshot and choose which bucket it goes into
 - assign selected screenshots to the current bucket
