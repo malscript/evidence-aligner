@@ -2,7 +2,7 @@
 
 Two small tools for organizing synthetic, timestamped screenshots.
 
-The command-line aligner matches screenshot clock times to a transcript and writes a Markdown report grouped by topic. The desktop organizer lets you build your own sessions and groups from a folder of files, then export a Word document.
+The command-line aligner matches screenshot clock times to a transcript and writes a Markdown report grouped by topic. The desktop organizer lets you build sessions and buckets from a folder of files, then export a Word document.
 
 All sample data in this repository is synthetic. The transcript, clock times, filenames, and images were invented for demonstration. They do not describe a real recording, meeting, or project.
 
@@ -88,7 +88,7 @@ gui/app.py                     desktop organizer
 gui/theme.py                   window colors, fonts, and buttons
 gui/dialogs.py                 dark prompts for notices and yes/no questions
 gui/preview.py                 screenshot preview and bucketing
-gui/model.py                   folders, sessions, groups, filename timestamps
+gui/model.py                   folders, sessions, buckets, filename timestamps
 gui/export_docx.py             Word export
 sample_data/transcript.json    synthetic transcript
 sample_data/screenshots.csv    synthetic screenshot clock times
