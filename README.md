@@ -54,11 +54,12 @@ You can:
 
 - choose a different screenshots folder
 - add sessions and groups by typing a name or label
+- preview a screenshot, then bucket it into the current session and group
 - assign selected screenshots to the current session and group
 - move screenshots up or down inside a group
 - return screenshots to the unassigned list
 - see everything that is still unassigned
-- export the sessions to a `.docx` file (one heading per session, one subheading per group)
+- export the assigned screenshots to a `.docx` file (one heading per session, one subheading per group)
 
 Sessions live in the window until you close it or reload the folder. Reload clears them.
 
@@ -77,7 +78,7 @@ python gui/app.py
 sudo apt install python3-tk
 ```
 
-The window opens on `sample_images/`. Export asks where to save the Word file and suggests `reports/screenshot_organizer.docx`. Unassigned screenshots are left out of the document; the app asks before doing that.
+The window opens on `sample_images/`. Select a file and click **Preview** to see it. **Bucket into …** puts that screenshot in the session and group you chose, then moves on to the next one that is still unassigned. **Export assigned to Word** writes every bucketed screenshot into one document and asks where to save it. The suggested path is `reports/screenshot_organizer.docx`. Unassigned screenshots are left out; the app asks before doing that.
 
 ## Layout
 
@@ -86,6 +87,7 @@ aligner.py                     command-line alignment
 gui/app.py                     desktop organizer
 gui/theme.py                   window colors, fonts, and buttons
 gui/dialogs.py                 dark prompts for notices and yes/no questions
+gui/preview.py                 screenshot preview and bucketing
 gui/model.py                   folders, sessions, groups, filename timestamps
 gui/export_docx.py             Word export
 sample_data/transcript.json    synthetic transcript

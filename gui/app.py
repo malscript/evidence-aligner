@@ -43,6 +43,7 @@ except ImportError:
 from dialogs import ask_yes_no, show_message
 from export_docx import export_document
 from model import Group, Organizer, Session, Shot
+from preview import PreviewWindow
 from theme import (
     ACCENT,
     ACCENT_DIM,
@@ -81,6 +82,7 @@ class OrganizerApp:
         self._all_view: list[Shot] = []
         self._unassigned_view: list[Shot] = []
         self._group_view: list[Shot] = []
+        self._preview: PreviewWindow | None = None
 
         root.title("Screenshot organizer")
         root.minsize(1080, 700)
@@ -114,9 +116,9 @@ class OrganizerApp:
         footer = ctk.CTkFrame(outer, fg_color="transparent")
         footer.grid(row=3, column=0, sticky="ew", pady=(14, 0))
         footer.columnconfigure(1, weight=1)
-        primary_button(footer, "Export to Word", self.export_word, self.fonts).grid(
-            row=0, column=0, padx=(0, 16)
-        )
+        export_button = primary_button(footer, "Export assigned to Word", self.export_word, self.fonts)
+        export_button.configure(width=230)
+        export_button.grid(row=0, column=0, padx=(0, 16))
         muted_label(footer, "", self.fonts, textvariable=self.status_var).grid(
             row=0, column=1, sticky="w"
         )
@@ -141,7 +143,7 @@ class OrganizerApp:
         ).grid(row=0, column=1, sticky="w")
         muted_label(
             header,
-            "Group timestamped screenshots into sessions, then export a Word document.",
+            "Preview a screenshot, bucket it into a session, then export the assigned shots.",
             self.fonts,
         ).grid(row=1, column=1, sticky="w", pady=(2, 0))
 
@@ -227,8 +229,15 @@ class OrganizerApp:
             row=0, column=2, padx=(8, 0)
         )
 
-        primary_button(parent, "Assign selected", self.assign_selected, self.fonts).grid(
-            row=4, column=0, sticky="ew", padx=16, pady=(0, 12)
+        action_row = ctk.CTkFrame(parent, fg_color="transparent")
+        action_row.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 12))
+        action_row.columnconfigure(0, weight=1)
+        action_row.columnconfigure(1, weight=1)
+        secondary_button(action_row, "Preview", self.preview_selected, self.fonts).grid(
+            row=0, column=0, sticky="ew", padx=(0, 8)
+        )
+        primary_button(action_row, "Assign selected", self.assign_selected, self.fonts).grid(
+            row=0, column=1, sticky="ew"
         )
 
         section_label(parent, "In this group", self.fonts).grid(
@@ -375,6 +384,7 @@ class OrganizerApp:
             show_message(self.root, "Screenshots folder", str(exc), self.fonts)
             self.status_var.set(str(exc))
             return
+        self._close_preview()
         self.session_combo.set("")
         self.group_combo.set("")
         self.refresh_all()
@@ -425,6 +435,85 @@ class OrganizerApp:
         self.refresh_groups()
         self.refresh_shot_lists()
         self.status_var.set(f"Removed group {group.label!r}. Its screenshots are unassigned.")
+
+    def preview_selected(self) -> None:
+        """Open the selected screenshot so it can be reviewed, then bucketed."""
+
+        if not self.organizer.shots:
+            show_message(self.root, "Preview", "This folder has no screenshots to preview.", self.fonts)
+            return
+        selected = self.selected_shots()
+        if selected:
+            start = selected[0]
+        elif self.organizer.unassigned_shots():
+            start = self.organizer.unassigned_shots()[0]
+        else:
+            start = self.organizer.shots[0]
+        index = next(i for i, shot in enumerate(self.organizer.shots) if shot.path == start.path)
+        if self._preview is not None and self._preview.winfo_exists():
+            self._preview.show(index)
+            self._preview.lift()
+            return
+        self._preview = PreviewWindow(
+            self.root,
+            self.fonts,
+            self.organizer.shots,
+            index,
+            bucket_text=self._bucket_button_text,
+            on_bucket=self._bucket_from_preview,
+            on_show=self._select_shot,
+            describe=self._preview_description,
+            is_unassigned=self._shot_is_unassigned,
+        )
+
+    def _close_preview(self) -> None:
+        if self._preview is not None and self._preview.winfo_exists():
+            self._preview.window.destroy()
+        self._preview = None
+
+    def _bucket_button_text(self) -> str:
+        session = self.current_session()
+        group = self.current_group()
+        if session is None or group is None:
+            return "Bucket into this group"
+        return f"Bucket into {session.name} / {group.label}"
+
+    def _bucket_from_preview(self, shot: Shot) -> bool:
+        session = self.current_session()
+        group = self.current_group()
+        if session is None or group is None:
+            show_message(self.root, "Bucket", "Choose a session and a group first.", self.fonts)
+            return False
+        moved = self.organizer.assign([shot], group)
+        self.refresh_shot_lists()
+        self.refresh_group_contents()
+        self._select_shot(shot)
+        if moved:
+            self.status_var.set(f"Bucketed {shot.filename} into {session.name} / {group.label}.")
+        else:
+            self.status_var.set(f"{shot.filename} is already in {session.name} / {group.label}.")
+        return True
+
+    def _preview_description(self, shot: Shot) -> str:
+        label = self.organizer.assignment_label(shot)
+        if label:
+            return f"Bucketed in {label}. Export assigned to Word includes this file."
+        return "Unassigned. Choose a session and group, then bucket this screenshot."
+
+    def _shot_is_unassigned(self, shot: Shot) -> bool:
+        return self.organizer.assignment_label(shot) is None
+
+    def _select_shot(self, shot: Shot) -> None:
+        """Highlight the shot being previewed in the full list."""
+
+        self.unassigned_list.selection_clear(0, tk.END)
+        self.all_list.selection_clear(0, tk.END)
+        for index, item in enumerate(self._all_view):
+            if item.path == shot.path:
+                self.all_list.selection_set(index)
+                self.all_list.see(index)
+                self.all_list.activate(index)
+                return
 
     def assign_selected(self) -> None:
         group = self.current_group()
@@ -479,6 +568,17 @@ class OrganizerApp:
     def export_word(self) -> None:
         if not self.organizer.sessions:
             show_message(self.root, "Export", "Add a session before exporting.", self.fonts)
+            return
+        assigned = sum(
+            len(group.shots) for session in self.organizer.sessions for group in session.groups
+        )
+        if assigned == 0:
+            show_message(
+                self.root,
+                "Export",
+                "Bucket at least one screenshot before exporting. The Word document includes only assigned screenshots.",
+                self.fonts,
+            )
             return
         unassigned = self.organizer.unassigned_shots()
         if unassigned:
