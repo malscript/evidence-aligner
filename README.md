@@ -46,7 +46,7 @@ python aligner.py \
 
 ## Desktop organizer
 
-The organizer is a Tkinter window. It does not read the transcript. It treats **every file** in a folder as a screenshot and sorts the list by the `HHMMSS` timestamp in the filename. `shot_143022.png` is 14:30:22. Files with no valid timestamp stay in the list and sort after the timed ones.
+The organizer is a CustomTkinter window. It does not read the transcript. It treats **every file** in a folder as a screenshot and sorts the list by the `HHMMSS` timestamp in the filename. `shot_143022.png` is 14:30:22. Files with no valid timestamp stay in the list and sort after the timed ones.
 
 `sample_images/` is the default folder. Nine of the files are small synthetic PNG images. `shot_141105.png` is a text placeholder on purpose: on export, real images are embedded and a non-image file is inserted as its filename. Every screenshot, image or not, gets a caption with its filename and timestamp.
 
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 python gui/app.py
 ```
 
-`requirements.txt` contains `python-docx`, which the Word export uses. The window itself is Tkinter from the Python standard library. On Debian or Ubuntu, if Python was installed without Tk, add the system package:
+`requirements.txt` installs `python-docx` for Word export and `customtkinter` for the window. CustomTkinter is built on Tkinter. On Debian or Ubuntu, if Python was installed without Tk, add the system package:
 
 ```bash
 sudo apt install python3-tk
@@ -84,10 +84,12 @@ The window opens on `sample_images/`. Export asks where to save the Word file an
 ```text
 aligner.py                     command-line alignment
 gui/app.py                     desktop organizer
+gui/theme.py                   window colors, fonts, and buttons
+gui/dialogs.py                 dark prompts for notices and yes/no questions
 gui/model.py                   folders, sessions, groups, filename timestamps
 gui/export_docx.py             Word export
 sample_data/transcript.json    synthetic transcript
 sample_data/screenshots.csv    synthetic screenshot clock times
 sample_images/                 synthetic screenshot files for the organizer
-requirements.txt               python-docx for Word export
+requirements.txt               python-docx and customtkinter
 ```
