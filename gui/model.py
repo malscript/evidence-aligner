@@ -1,7 +1,11 @@
 """In-memory organization of timestamped screenshot files.
 
-A screenshot is any file in a chosen folder. Its clock time is read from an
-HHMMSS token in the filename, for example shot_143022.png is 14:30:22.
+A screenshot is any file in a chosen folder. Its clock time is read from the
+filename. Two shapes are recognized:
+
+- yyyy-MM-dd HH_mm_ss, as in 2026-09-30 14_30_22.png
+- HHMMSS, as in shot_143022.png (14:30:22)
+
 Sessions and groups are created by the user; this module only stores them
 and keeps the screenshot order inside each group.
 """
@@ -10,9 +14,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 
+# Capture pattern yyyy-MM-dd HH_mm_ss. A space or underscore may separate the
+# date from the clock. Digits must not be part of a longer number.
+_CAPTURED_AT = re.compile(
+    r"(?<!\d)(\d{4})-(\d{2})-(\d{2})[ _](\d{2})_(\d{2})_(\d{2})(?!\d)"
+)
 # Six clock digits bounded by non-digits, so shot_143022.png matches and a
 # longer digit run (shot_1430229.png) does not.
 _TIMESTAMP = re.compile(r"(?<!\d)(\d{2})(\d{2})(\d{2})(?!\d)")
@@ -24,6 +34,8 @@ class Shot:
 
     path: Path
     timestamp: tuple[int, int, int] | None
+    # Set when the filename includes yyyy-MM-dd. Clock-only names leave this empty.
+    captured_on: tuple[int, int, int] | None = None
 
     @property
     def filename(self) -> str:
@@ -34,7 +46,11 @@ class Shot:
         if self.timestamp is None:
             return "--:--:--"
         hour, minute, second = self.timestamp
-        return f"{hour:02d}:{minute:02d}:{second:02d}"
+        clock = f"{hour:02d}:{minute:02d}:{second:02d}"
+        if self.captured_on is None:
+            return clock
+        year, month, day = self.captured_on
+        return f"{year:04d}-{month:02d}-{day:02d} {clock}"
 
     def caption(self) -> str:
         if self.timestamp is None:
@@ -77,7 +93,8 @@ class Organizer:
             # hidden files so editor debris does not show up as a screenshot.
             if not path.is_file() or path.name.startswith("."):
                 continue
-            shots.append(Shot(path=path, timestamp=parse_filename_timestamp(path.name)))
+            captured_on, timestamp = parse_filename_timestamp(path.name)
+            shots.append(Shot(path=path, timestamp=timestamp, captured_on=captured_on))
         shots.sort(key=shot_sort_key)
         self.shots = shots
         self.sessions = []
@@ -170,22 +187,49 @@ class Organizer:
         return [shot for shot in self.shots if shot.path not in assigned]
 
 
-def parse_filename_timestamp(filename: str) -> tuple[int, int, int] | None:
-    """Pull HH, MM, SS out of a filename. Invalid clock values count as missing."""
+def parse_filename_timestamp(
+    filename: str,
+) -> tuple[tuple[int, int, int] | None, tuple[int, int, int] | None]:
+    """Return (year, month, day) and (hour, minute, second).
+
+    A dated name such as 2026-09-30 14_30_22.png fills both. A clock-only name
+    such as shot_143022.png fills the time and leaves the date empty. Invalid
+    calendar dates and clock values count as missing.
+    """
+
+    dated = _CAPTURED_AT.search(filename)
+    if dated is not None:
+        year, month, day, hour, minute, second = (int(part) for part in dated.groups())
+        if _real_moment(year, month, day, hour, minute, second):
+            return (year, month, day), (hour, minute, second)
 
     match = _TIMESTAMP.search(filename)
     if match is None:
-        return None
+        return None, None
     hour, minute, second = (int(part) for part in match.groups())
     if hour > 23 or minute > 59 or second > 59:
-        return None
-    return hour, minute, second
+        return None, None
+    return None, (hour, minute, second)
+
+
+def _real_moment(year: int, month: int, day: int, hour: int, minute: int, second: int) -> bool:
+    try:
+        datetime(year, month, day, hour, minute, second)
+    except ValueError:
+        return False
+    return True
 
 
 def shot_sort_key(shot: Shot) -> tuple:
-    """Timed files first, in clock order. Untimed files follow, by name."""
+    """Timed files first. Dated names sort by calendar day, then clock time.
+
+    Clock-only names sort by time of day among themselves. Untimed files follow, by name.
+    """
 
     if shot.timestamp is None:
-        return (1, 0, 0, 0, shot.filename.lower())
+        return (1, 0, 0, 0, 0, 0, 0, shot.filename.lower())
     hour, minute, second = shot.timestamp
-    return (0, hour, minute, second, shot.filename.lower())
+    if shot.captured_on is None:
+        return (0, 0, 0, 0, hour, minute, second, shot.filename.lower())
+    year, month, day = shot.captured_on
+    return (0, year, month, day, hour, minute, second, shot.filename.lower())

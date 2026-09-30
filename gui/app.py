@@ -390,7 +390,7 @@ class OrganizerApp:
         self.refresh_all()
         self.status_var.set(
             f"Loaded {len(self.organizer.shots)} file(s) from {folder}. "
-            "Every file is listed, sorted by the HHMMSS time in its name."
+            "Every file is listed, sorted by the time in its name."
         )
 
     def add_session(self) -> None:
