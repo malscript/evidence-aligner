@@ -53,7 +53,7 @@ The organizer is a CustomTkinter window. It does not read the transcript. It tre
 You can:
 
 - choose a different screenshots folder
-- add sessions, and add as many buckets as you need inside each session
+- add sessions, and add as many buckets as you need inside each session (the name is whatever you type when you add it)
 - preview a screenshot and choose which bucket it goes into
 - assign selected screenshots to the current bucket
 - move screenshots up or down inside a bucket

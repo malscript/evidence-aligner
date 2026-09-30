@@ -51,12 +51,12 @@ def export_document(sessions: list[Session], destination: Path) -> None:
     for session in sessions:
         document.add_heading(session.name, level=1)
         if not session.groups:
-            document.add_paragraph("No groups in this session.")
+            document.add_paragraph("No buckets in this session.")
             continue
         for group in session.groups:
             document.add_heading(group.label, level=2)
             if not group.shots:
-                document.add_paragraph("No screenshots in this group.")
+                document.add_paragraph("No screenshots in this bucket.")
                 continue
             for shot in group.shots:
                 _add_shot(document, shot, picture_width)
