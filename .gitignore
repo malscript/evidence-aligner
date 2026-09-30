@@ -1,0 +1,28 @@
+# Bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging
+*.egg-info/
+dist/
+build/
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+
+# Logs
+*.log
+
+# Generated reports (Markdown from the aligner, Word exports from the organizer)
+reports/

@@ -1,0 +1,38 @@
+[
+  {
+    "start_seconds": 30,
+    "end_seconds": 150,
+    "topic": "Welcome",
+    "text": "Welcome. This walkthrough covers the sample layout, the notes for today, and the order of the screens."
+  },
+  {
+    "start_seconds": 150,
+    "end_seconds": 300,
+    "topic": "Welcome",
+    "text": "The plan is to move through the timeline from start to finish and park questions until the end."
+  },
+  {
+    "start_seconds": 330,
+    "end_seconds": 520,
+    "topic": "Feature tour",
+    "text": "This screen is the main board: a list on the left and a summary on the right."
+  },
+  {
+    "start_seconds": 520,
+    "end_seconds": 700,
+    "topic": "Feature tour",
+    "text": "Changing the filter refreshes the chart and the list together."
+  },
+  {
+    "start_seconds": 740,
+    "end_seconds": 900,
+    "topic": "Closing",
+    "text": "Open questions are collected here, with a short note on what to revisit next."
+  },
+  {
+    "start_seconds": 900,
+    "end_seconds": 1020,
+    "topic": "Closing",
+    "text": "That is the end of the walkthrough. The recording stops after this recap."
+  }
+]
